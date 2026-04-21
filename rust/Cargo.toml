@@ -1,0 +1,15 @@
+[package]
+name = "lastline_core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "lastline_core"
+crate-type = ["cdylib"] 
+
+[dependencies]
+# 必须引入 windows 库，用于调用底层 API
+windows = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+] }
