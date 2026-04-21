@@ -1,12 +1,7 @@
-import ctypes
+def calculate_base_width(text_width):
+    return float(text_width) * 1.1
 
-def apply_high_dpi_awareness():
-    """[行政指令]: 强制 Windows 进程进入 Per-Monitor V2 模式，确保物理像素 1:1 对齐"""
-    try:
-        # 针对 Win10 1703 及以后版本（华为笔记本主流系统）
-        ctypes.windll.shcore.SetProcessDpiAwareness(2) 
-    except Exception:
-        try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(1)
-        except Exception:
-            ctypes.windll.user32.SetProcessDPIAware()
+def get_bottom_center_pos(screen_w, screen_h, win_w, win_h, offset_y=70):
+    x = (int(screen_w) - int(win_w)) // 2
+    y = int(screen_h) - int(win_h) - int(offset_y)
+    return x, y
