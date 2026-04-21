@@ -1,0 +1,19 @@
+# Python 字节码与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Rust 编译产物
+target/
+**/*.pyd
+**/*.dll
+**/*.so
+
+# 开发工具与临时文件
+.vscode/
+.idea/
+*.bak
+*.tmp
+development_launcher.py
