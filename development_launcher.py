@@ -1,37 +1,34 @@
-# [FUNCTION]: 开发态集成启动器（修正版）：实现屏幕物理对齐，强制居中置底。
 import sys
 import tkinter as tk
 from pathlib import Path
 
+# 强制注入路径
 BASE_DIR = Path(__file__).parent
-sys.path.append(str(BASE_DIR / "python"))
+sys.path.insert(0, str(BASE_DIR / "python"))
 
-try:
-    from infrastructure.system.abstraction.dpi_adapter import apply_high_dpi_awareness
-    from ui.layout.geometry_math import get_bottom_center_pos, calculate_base_width
-    from ui.window.base_canvas import BaseCanvas
-    from ui.layout.dock_renderer import draw_suspension_dock
-    from ui.render.flip_effect import apply_center_shadow
-except ImportError as e:
-    print(f"[ERROR]: 模块缺失，请检查路径。{e}")
-    sys.exit()
+from infrastructure.system.abstraction.dpi_adapter import apply_high_dpi_awareness
+import ui.layout.geometry_math as geo
+from ui.window.base_canvas import BaseCanvas
+from ui.layout.dock_renderer import draw_suspension_dock
 
-class LastLineCorrectedPreview:
+class LastLineFinalPreview:
     def __init__(self):
+        # 1. 开启 DPI 感知
         apply_high_dpi_awareness()
+        
         self.root = tk.Tk()
         
-        # 定义窗口尺寸
-        win_w, win_h = 500, 200
+        # 2. 设定窗口尺寸（适当加宽以容纳 1.1x 底座）
+        win_w, win_h = 500, 180
         
-        # --- 核心修正：获取屏幕真实的物理尺寸 ---
+        # 3. 核心修正：获取实时的屏幕物理宽高
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         
-        # 计算居中置底坐标
-        pos_x, pos_y = get_bottom_center_pos(screen_w, screen_h, win_w, win_h)
+        # 4. 计算置底居中位置
+        pos_x, pos_y = geo.get_bottom_center_pos(screen_w, screen_h, win_w, win_h)
         
-        # 强制应用坐标
+        # 5. 强制应用几何主权
         self.root.geometry(f"{win_w}x{win_h}+{pos_x}+{pos_y}")
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
@@ -39,14 +36,13 @@ class LastLineCorrectedPreview:
 
         self.canvas = BaseCanvas(self.root, bg="black")
         
-        # 渲染
+        # 渲染数字：确保在 Canvas 内部也居中
         self.text_id = self.canvas.create_text(
-            200, 60, text="47 DAYS", fill="#FFFFFF", font=("Segoe UI Semibold", 48)
+            250, 80, text="47 DAYS", fill="#FFFFFF", font=("Segoe UI Semibold", 52)
         )
-        draw_suspension_dock(self.canvas, self.text_id, color="#0078D7")
         
-        x1, y1, x2, y2 = self.canvas.bbox(self.text_id)
-        apply_center_shadow(self.canvas, x1, y1, x2-x1, y2-y1)
+        # 绘制 1.1x 悬浮底座
+        draw_suspension_dock(self.canvas, self.text_id, color="#0078D7")
 
         self.root.bind("<Escape>", lambda e: self.root.destroy())
 
@@ -54,6 +50,6 @@ class LastLineCorrectedPreview:
         self.root.mainloop()
 
 if __name__ == "__main__":
-    print("[SYSTEM]: 正在执行物理对齐校准...")
-    app = LastLineCorrectedPreview()
+    print(f"[SYSTEM]: GPL v3.0 协议已激活。正在执行物理对齐...")
+    app = LastLineFinalPreview()
     app.run()
