@@ -67,40 +67,41 @@ class LastLineFinalPreview:
 
     def refresh_heartbeat(self):
         """
-        [渲染主权]: 强迫 Windows 对嵌入桌面的窗口进行物理重绘
+        [物理刷新]: 针对 WorkerW 层的像素冻结，执行强制位移重绘
         """
         try:
-            # 1. 物理计算
+            # 1. 原子获取最新时间
             d, h, m = get_countdown_physics(self.target_time)
             display_txt = format_countdown_string(d, h, m)
             
-            # 2. 检查是否有变化
+            # 2. 检查是否有逻辑更新
             current_txt = self.canvas.itemcget(self.text_id, "text")
             if display_txt != current_txt:
-                # 更新文字内容
+                # 更新文本和底座
                 self.canvas.itemconfig(self.text_id, text=display_txt)
-                # 更新底座宽度
                 update_suspension_dock(self.canvas, self.text_id)
                 
-                # --- 关键：三段式物理唤醒 ---
-                # A. 强迫 Tkinter 更新内部渲染队列
+                # --- 关键：强制物理唤醒组合拳 ---
+                # A. 更新内部状态
                 self.root.update_idletasks()
                 
-                # B. 强迫窗口重绘（防止在 WorkerW 层被冻结）
-                self.canvas.update() 
+                # B. [物理位移]: 稍微挪动 1 像素再挪回来，强迫桌面层重绘
+                curr_geo = self.root.geometry() # 格式如 "600x200+500+800"
+                size, x, y = curr_geo.split('+')[0], int(curr_geo.split('+')[1]), int(curr_geo.split('+')[2])
                 
-                # C. (可选) 稍微移动 1 像素再移回来，触发系统级感知
-                # 这种“位移抖动”是处理置底窗口不刷新的玄学但有效的方案
-                curr_geo = self.root.geometry()
-                # 提取当前的 x, y 并微调
+                # 瞬间抖动：让系统意识到“这里有个窗口在动，快刷新它！”
+                self.root.geometry(f"{size}+{x+1}+{y}")
+                self.root.update()
+                self.root.geometry(f"{size}+{x}+{y}")
+                self.root.update()
+                
                 print(f"[HEARTBEAT]: 物理刷新成功 -> {display_txt}")
             
         except Exception as e:
-            print(f"[ERROR]: 心跳同步失败: {e}")
+            print(f"[ERROR]: 渲染引擎心跳异常: {e}")
         
-        # 将频率提高到 10 秒，确保分钟切换的视觉延迟降到最低
+        # 频率保持在 10-20 秒即可，确保分钟切换的瞬间能被捕获
         self.root.after(10000, self.refresh_heartbeat)
-
     def run(self):
         self.root.mainloop()
 
