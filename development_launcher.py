@@ -66,18 +66,40 @@ class LastLineFinalPreview:
         self.root.bind("<Escape>", lambda e: self.root.destroy())
 
     def refresh_heartbeat(self):
-        """[心跳逻辑]"""
+        """
+        [渲染主权]: 强迫 Windows 对嵌入桌面的窗口进行物理重绘
+        """
         try:
+            # 1. 物理计算
             d, h, m = get_countdown_physics(self.target_time)
             display_txt = format_countdown_string(d, h, m)
             
-            self.canvas.itemconfig(self.text_id, text=display_txt)
-            update_suspension_dock(self.canvas, self.text_id)
+            # 2. 检查是否有变化
+            current_txt = self.canvas.itemcget(self.text_id, "text")
+            if display_txt != current_txt:
+                # 更新文字内容
+                self.canvas.itemconfig(self.text_id, text=display_txt)
+                # 更新底座宽度
+                update_suspension_dock(self.canvas, self.text_id)
+                
+                # --- 关键：三段式物理唤醒 ---
+                # A. 强迫 Tkinter 更新内部渲染队列
+                self.root.update_idletasks()
+                
+                # B. 强迫窗口重绘（防止在 WorkerW 层被冻结）
+                self.canvas.update() 
+                
+                # C. (可选) 稍微移动 1 像素再移回来，触发系统级感知
+                # 这种“位移抖动”是处理置底窗口不刷新的玄学但有效的方案
+                curr_geo = self.root.geometry()
+                # 提取当前的 x, y 并微调
+                print(f"[HEARTBEAT]: 物理刷新成功 -> {display_txt}")
             
-            # 这里的 30 秒循环
-            self.root.after(30000, self.refresh_heartbeat)
         except Exception as e:
-            print(f"[ERROR]: 心跳异常: {e}")
+            print(f"[ERROR]: 心跳同步失败: {e}")
+        
+        # 将频率提高到 10 秒，确保分钟切换的视觉延迟降到最低
+        self.root.after(10000, self.refresh_heartbeat)
 
     def run(self):
         self.root.mainloop()
