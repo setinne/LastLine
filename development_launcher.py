@@ -1,11 +1,13 @@
 import sys
-import tkinter as tk
 from pathlib import Path
-import ctypes
 
-# 路径主权
+# [路径主权]: 确保 Python 能看到 python/ 目录下的所有原子模块
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR / "python"))
+
+# 现在才能安全导入
+from infrastructure.time.engine import calculate_remaining_time
+from infrastructure.time.formatter import format_countdown_string
 
 # 加载 Rust 肌肉
 try:
@@ -22,6 +24,23 @@ from ui.window.base_canvas import BaseCanvas
 from ui.layout.dock_renderer import draw_suspension_dock
 
 class LastLineFinalPreview:
+    def __init__(self):
+        # ... DPI, root, geometry, Rust 劫持 ...
+        self.target = datetime(2026, 6, 7, 9, 0) # 高考开考
+        self.render_heartbeat()
+
+    def render_heartbeat(self):
+        # 1. 物理计算
+        d, h, m = calculate_remaining_time(self.target)
+        # 2. 格式化
+        txt = format_countdown_string(d, h, m)
+        
+        # 3. UI 映射
+        self.canvas.itemconfig(self.text_id, text=txt)
+        update_suspension_dock(self.canvas, self.text_id)
+        
+        # 30秒一次心跳，省电且精准
+        self.root.after(30000, self.render_heartbeat)
     def __init__(self):
         # 1. 优先级最高：开启 DPI 感知
         apply_high_dpi_awareness()
