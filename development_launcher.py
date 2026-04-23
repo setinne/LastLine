@@ -30,77 +30,67 @@ class LastLineFinalPreview:
         self.root = tk.Tk()
         self.target_time = datetime(2026, 6, 7, 9, 0)
         
-        # 窗口物理参数
-        win_w, win_h = 600, 200 # 稍微放大一点，防止中文溢出
+        # 1. 窗口样式主权
+        win_w, win_h = 600, 200
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         pos_x, pos_y = geo.get_bottom_center_pos(screen_w, screen_h, win_w, win_h)
         
         self.root.geometry(f"{win_w}x{win_h}+{pos_x}+{pos_y}")
-        self.root.overrideredirect(True)
+        self.root.overrideredirect(True)      # 无边框
+        self.root.attributes("-topmost", False) # 绝不置顶
         self.root.configure(bg="black")
         self.root.attributes("-transparentcolor", "black")
         
-        # 4. 关键：先建立画布
+        # 2. 绕过任务栏 (真正的独立插件感)
+        self.root.attributes("-toolwindow", True) 
+
         self.canvas = BaseCanvas(self.root, bg="black")
-        
-        # 5. 关键：预填充内容，防止 BBox 塌陷
-        # 先用 LOADING 占位，确保窗口在劫持前不是空的
         self.text_id = self.canvas.create_text(
-            300, 100, text="INITIALIZING...", fill="#FFFFFF", font=("Segoe UI Semibold", 42)
+            300, 100, text="STARTING...", fill="#FFFFFF", font=("Segoe UI Semibold", 42)
         )
         
-        # 6. 核心动作：先执行一次真实的数据刷新
+        # 3. 初始渲染
         self.refresh_heartbeat()
-        
-        # 7. 渲染锁定：强迫窗口立刻绘制所有像素
-        self.root.update_idletasks()
         self.root.update()
-        
-        # 8. 最后一步：物理劫持
-        # 只有当窗口里已经有东西了，才把它塞进桌面
-        if rust_lib:
-            rust_lib.embed_to_desktop(self.root.winfo_id())
-            print(f"[ACTION]: 句柄 {self.root.winfo_id()} 已嵌入桌面。")
+
+        # 4. 关键：另起炉灶的“底层压制”
+        # 我们手动调用 Windows API 将窗口置于底部，而不进入 WorkerW
+        self.set_to_bottom()
 
         self.root.bind("<Escape>", lambda e: self.root.destroy())
 
+    def set_to_bottom(self):
+        """[底层主权]: 强行将窗口推至所有普通窗口下方"""
+        HWND_BOTTOM = 1
+        SWP_NOMOVE = 0x0002
+        SWP_NOSIZE = 0x0001
+        SWP_NOACTIVATE = 0x0010
+        
+        hwnd = self.root.winfo_id()
+        ctypes.windll.user32.SetWindowPos(
+            hwnd, HWND_BOTTOM, 0, 0, 0, 0, 
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+        )
+        print(f"[ACTION]: 窗口已执行底层压制 (HWND_BOTTOM)")
+
     def refresh_heartbeat(self):
-        """
-        [物理刷新]: 针对 WorkerW 层的像素冻结，执行强制位移重绘
-        """
+        """[心跳引擎]: 恢复常规更新逻辑"""
         try:
-            # 1. 原子获取最新时间
             d, h, m = get_countdown_physics(self.target_time)
             display_txt = format_countdown_string(d, h, m)
             
-            # 2. 检查是否有逻辑更新
-            current_txt = self.canvas.itemcget(self.text_id, "text")
-            if display_txt != current_txt:
-                # 更新文本和底座
-                self.canvas.itemconfig(self.text_id, text=display_txt)
-                update_suspension_dock(self.canvas, self.text_id)
-                
-                # --- 关键：强制物理唤醒组合拳 ---
-                # A. 更新内部状态
-                self.root.update_idletasks()
-                
-                # B. [物理位移]: 稍微挪动 1 像素再挪回来，强迫桌面层重绘
-                curr_geo = self.root.geometry() # 格式如 "600x200+500+800"
-                size, x, y = curr_geo.split('+')[0], int(curr_geo.split('+')[1]), int(curr_geo.split('+')[2])
-                
-                # 瞬间抖动：让系统意识到“这里有个窗口在动，快刷新它！”
-                self.root.geometry(f"{size}+{x+1}+{y}")
-                self.root.update()
-                self.root.geometry(f"{size}+{x}+{y}")
-                self.root.update()
-                
-                print(f"[HEARTBEAT]: 物理刷新成功 -> {display_txt}")
+            # 恢复简单的更新，因为不再受 WorkerW 缓存干扰
+            self.canvas.itemconfig(self.text_id, text=display_txt)
+            update_suspension_dock(self.canvas, self.text_id)
             
+            # 每 10 秒尝试刷新一次底层状态，防止被其他窗口意外挤上来
+            self.set_to_bottom()
+            
+            print(f"[HEARTBEAT]: {display_txt}")
         except Exception as e:
-            print(f"[ERROR]: 渲染引擎心跳异常: {e}")
-        
-        # 频率保持在 10-20 秒即可，确保分钟切换的瞬间能被捕获
+            print(f"[ERROR]: {e}")
+            
         self.root.after(10000, self.refresh_heartbeat)
     def run(self):
         self.root.mainloop()
