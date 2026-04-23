@@ -50,15 +50,31 @@ class LastLineFinalPreview:
             300, 100, text="STARTING...", fill="#FFFFFF", font=("Segoe UI Semibold", 42)
         )
         
-        # 3. 初始渲染
+        # 3. 初始渲染并生成句柄
         self.refresh_heartbeat()
         self.root.update()
 
-        # 4. 关键：另起炉灶的“底层压制”
-        # 我们手动调用 Windows API 将窗口置于底部，而不进入 WorkerW
+        # 4. 执行底层压制 (HWND_BOTTOM)
         self.set_to_bottom()
 
+        # 5. [新增]: 极致原子化——实现鼠标穿透 (WS_EX_TRANSPARENT)
+        # 必须在 update() 生成 hwnd 后执行
+        self.apply_mouse_passthrough()
+
         self.root.bind("<Escape>", lambda e: self.root.destroy())
+
+    def apply_mouse_passthrough(self):
+        """[视觉主权]: 让鼠标彻底穿透窗口，使其无法被选中或干扰桌面操作"""
+        GWL_EXSTYLE = -20
+        WS_EX_TRANSPARENT = 0x20
+        # WS_EX_LAYERED (0x80000) 已经在 attributes 中由 tkinter 自动处理了
+        
+        hwnd = self.root.winfo_id()
+        # 获取当前扩展样式
+        current_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        # 注入穿透属性
+        ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, current_style | WS_EX_TRANSPARENT)
+        print("[ACTION]: 鼠标穿透已激活，窗口进入“幻影”模式。")
 
     def set_to_bottom(self):
         """[底层主权]: 强行将窗口推至所有普通窗口下方"""
@@ -75,16 +91,15 @@ class LastLineFinalPreview:
         print(f"[ACTION]: 窗口已执行底层压制 (HWND_BOTTOM)")
 
     def refresh_heartbeat(self):
-        """[心跳引擎]: 恢复常规更新逻辑"""
+        """[心跳引擎]: 定期刷新时间并维持置底状态"""
         try:
             d, h, m = get_countdown_physics(self.target_time)
             display_txt = format_countdown_string(d, h, m)
             
-            # 恢复简单的更新，因为不再受 WorkerW 缓存干扰
             self.canvas.itemconfig(self.text_id, text=display_txt)
             update_suspension_dock(self.canvas, self.text_id)
             
-            # 每 10 秒尝试刷新一次底层状态，防止被其他窗口意外挤上来
+            # 每 10 秒重新置底一次，防止被资源管理器刷新覆盖
             self.set_to_bottom()
             
             print(f"[HEARTBEAT]: {display_txt}")
@@ -92,6 +107,7 @@ class LastLineFinalPreview:
             print(f"[ERROR]: {e}")
             
         self.root.after(10000, self.refresh_heartbeat)
+
     def run(self):
         self.root.mainloop()
 
