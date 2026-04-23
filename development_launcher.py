@@ -46,7 +46,7 @@ class LastLineFinalPreview:
         self.root.attributes("-transparentcolor", "black")
         
         # 5. 挂载画布 (注意 Canvas 的背景也要是黑色，才能被透明化)
-        self.canvas = BaseCanvas(self.root, bg="black", highlightthickness=0)
+        self.canvas = BaseCanvas(self.root, bg="black")
         
         # ... 剩下的渲染与 Rust 劫持逻辑保持不变 ...
         self.text_id = self.canvas.create_text(
